@@ -1,63 +1,59 @@
-// Install DockerPipeline Plugin
-// usermod -aG docker jenkins
-// restart jenkins url:8080/restart
-
 pipeline {
-    agent none
+    agent any
+
+    environment {
+        IMAGE_NAME = "api1"
+        CONTAINER_NAME = "api1"
+        HOST_PORT = "5000"
+        CONTAINER_PORT = "3000"
+    }
 
     stages {
-        stage('Build') {
-            agent {
-                docker {
-                    image 'node:16'
+        stage('Clean Old Container') {
+            steps {
+                script {
+                    sh """
+                        docker rm -f ${CONTAINER_NAME} || true
+                    """
                 }
             }
-            steps {
-                // Perform build steps here
-                sh 'echo "first step"'
-                sh 'node -v'
-                sh 'pwd'
-                sh 'touch test.js'
-                sh 'ls'
+        }
 
-            }
-        }
-        
-        stage('Test') {
-            agent {
-                docker {
-                    image 'python:latest'
-                }
-            }
+        stage('Build Docker Image') {
             steps {
-                // Perform testing steps here
-                sh 'echo "second step"'
-                sh 'pwd'
-                sh 'ls'
+                sh """
+                    docker build -t ${IMAGE_NAME} .
+                """
             }
         }
-        
+
+        stage('Run Docker Container') {
+            steps {
+                sh """
+                    docker run -d --name ${CONTAINER_NAME} -p ${HOST_PORT}:${CONTAINER_PORT} ${IMAGE_NAME}
+                """
+            }
+        }
+
+        stage('Show Docker Images') {
+            steps {
+                sh 'docker images'
+            }
+        }
+
+        stage('Show Running Containers') {
+            steps {
+                sh 'docker ps'
+            }
+        }
+    }
+
+    post {
+        failure {
+            echo "💥 Build or container run failed!"
+        }
+        success {
+            echo "✅ Docker container '${CONTAINER_NAME}' running on port ${HOST_PORT}"
+        }
     }
 }
-
-// pipeline {
-//     agent none
-//     stages {
-//         stage('Back-end') {
-//             agent {
-//                 docker { image 'maven:3.9.0-eclipse-temurin-11' }
-//             }
-//             steps {
-//                 sh 'mvn --version'
-//             }
-//         }
-//         stage('Front-end') {
-//             agent {
-//                 docker { image 'node:18.16.0-alpine' }
-//             }
-//             steps {
-//                 sh 'node --version'
-//             }
-//         }
-//     }
-// }
